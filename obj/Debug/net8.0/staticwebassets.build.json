@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "1qJXvD7EZ8OJgEqYmrrpd3Zmf2ZN+okT9hM/+YFi2tM=",
+  "Source": "BancoSqsAws",
+  "BasePath": "_content/BancoSqsAws",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}
