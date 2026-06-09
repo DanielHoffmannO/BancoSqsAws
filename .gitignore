@@ -1,0 +1,29 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## VS
+.vs/
+
+## User-specific
+*.rsuser
+*.DotSettings.user
+
+## Build
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+
+## SQLite local
+*.db
+*.db-shm
+*.db-wal
+
+## OS
+Thumbs.db
+.DS_Store

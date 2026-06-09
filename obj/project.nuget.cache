@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "5L4KaJYnP7A=",
+  "dgSpecHash": "mgJzn2zBlSU=",
   "success": true,
-  "projectFilePath": "C:\\Users\\114995\\source\\repos\\pessoal\\BancoSqsAws\\BancoSqsAws.csproj",
+  "projectFilePath": "C:\\Users\\114995\\source\\reposPessoal\\BancoSqsAws\\BancoSqsAws.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\114995\\.nuget\\packages\\amazon.core\\0.33.0\\amazon.core.0.33.0.nupkg.sha512",
     "C:\\Users\\114995\\.nuget\\packages\\amazon.sqs\\0.33.0\\amazon.sqs.0.33.0.nupkg.sha512",
