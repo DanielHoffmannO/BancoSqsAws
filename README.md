@@ -1,41 +1,46 @@
 # 🏦 BancoSqsAws
 
-API REST em .NET 8 que simula um sistema bancário de mensageria utilizando **AWS SQS** para enfileiramento de mensagens e **SQLite** para persistência local.
+API REST em **.NET 8** que demonstra integração com **AWS SQS** (Simple Queue Service) — fila de mensagens com persistência local via EF Core + SQLite.
 
-## 📋 Sobre o Projeto
+## 🎯 O que este projeto demonstra
 
-Este projeto demonstra a integração entre uma API ASP.NET Core e o serviço de filas da AWS (Simple Queue Service). O fluxo consiste em:
-
-1. **Enviar mensagem** → publica na fila SQS
-2. **Receber mensagem** → consome da fila SQS, persiste no banco SQLite e remove da fila
+| Conceito AWS / .NET | Implementação |
+|---|---|
+| AWS SQS SDK | `AWSSDK.SQS` com `IAmazonSQS` via DI |
+| Options Pattern | `IOptions<SqsSettings>` com configuração externalizada |
+| Long Polling | `WaitTimeSeconds` configurável para reduzir custos |
+| At-Least-Once Delivery | Delete da fila APENAS após persistir no banco |
+| Interface + DI | `ISqsService` registrada via `AddScoped` |
+| Structured Logging | `ILogger<T>` com dados de contexto (MessageId, etc.) |
+| CancellationToken | Propagado em toda a cadeia assíncrona |
+| Records (DTOs) | Request/Response imutáveis |
+| EF Core Migrations | Auto-apply na inicialização |
 
 ## 🛠️ Stack
 
-| Tecnologia | Uso |
-|---|---|
-| .NET 8 | Framework principal |
-| ASP.NET Core Web API | Endpoints REST |
-| AWS SQS | Fila de mensagens |
-| Entity Framework Core 8 | ORM |
-| SQLite | Banco de dados local |
-| Swagger | Documentação interativa da API |
+- .NET 8 / ASP.NET Core Web API
+- AWS SQS (SDK `AWSSDK.SQS`)
+- Entity Framework Core 8 + SQLite
+- Swagger / OpenAPI
 
 ## 📁 Estrutura
 
 ```
 BancoSqsAws/
+├── Configuration/
+│   └── SqsSettings.cs         # Options Pattern (config tipada)
 ├── Controllers/
-│   └── SqsController.cs      # Endpoints POST e GET
+│   └── SqsController.cs       # Endpoints com ProducesResponseType
 ├── Services/
-│   └── SqsService.cs         # Lógica de envio/recebimento SQS
+│   ├── ISqsService.cs         # Interface (contrato)
+│   └── SqsService.cs          # Implementação com logging + error handling
 ├── Models/
-│   ├── MessageModel.cs        # DTO de entrada
-│   └── MessageEntity.cs       # Entidade persistida no banco
+│   ├── MessageModel.cs        # DTOs (records imutáveis)
+│   └── MessageEntity.cs       # Entidade persistida
 ├── Data/
-│   └── AppDbContext.cs        # DbContext (EF Core + SQLite)
-├── Program.cs                 # Configuração e DI
-├── appsettings.json           # Config AWS (região, profile)
-└── BancoSqsAws.csproj        # Dependências do projeto
+│   └── AppDbContext.cs        # DbContext
+├── Program.cs                 # DI + Pipeline organizado
+└── appsettings.json           # Config AWS + SQS + ConnectionString
 ```
 
 ## 🚀 Como Rodar
@@ -43,64 +48,55 @@ BancoSqsAws/
 ### Pré-requisitos
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- [AWS CLI](https://aws.amazon.com/cli/) configurado com credenciais válidas
+- [AWS CLI](https://aws.amazon.com/cli/) configurado (`aws configure`)
 - Fila SQS criada no console AWS
 
-### Configuração
+### Setup
 
-1. Configure suas credenciais AWS:
-   ```bash
-   aws configure
+1. Configure a URL da sua fila no `appsettings.json`:
+   ```json
+   "SqsSettings": {
+     "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/sua-fila"
+   }
    ```
 
-2. No arquivo `Services/SqsService.cs`, substitua `YOUR_SQS_QUEUE_URL` pela URL da sua fila:
-   ```csharp
-   _queueUrl = "https://sqs.us-east-1.amazonaws.com/123456789/sua-fila";
-   ```
-
-3. Execute:
+2. Execute:
    ```bash
-   dotnet restore
    dotnet run
    ```
 
-4. Acesse o Swagger: `http://localhost:5069`
+3. Swagger em: `http://localhost:5069`
 
 ## 📡 Endpoints
 
-| Método | Rota | Descrição |
-|---|---|---|
-| `POST` | `/api/sqs` | Envia mensagem para a fila SQS |
-| `GET` | `/api/sqs` | Consome próxima mensagem da fila e persiste no banco |
-
-### Exemplo de Request (POST)
+### POST `/api/sqs` — Enviar mensagem
 
 ```json
-{
-  "id": "msg-001",
-  "content": "Transferência de R$ 150,00 para conta 12345"
-}
+// Request
+{ "content": "Transferência de R$ 150,00 para conta 12345" }
+
+// Response 200
+{ "messageId": "abc-123-def", "status": "Mensagem enviada com sucesso" }
 ```
 
-### Exemplo de Response (GET)
+### GET `/api/sqs` — Consumir mensagem
 
 ```json
-{
-  "id": 1,
-  "content": "Transferência de R$ 150,00 para conta 12345",
-  "receivedAt": "2024-01-15T10:30:00Z"
-}
+// Response 200
+{ "id": 1, "content": "Transferência de R$ 150,00 para conta 12345", "receivedAt": "2024-01-15T10:30:00Z" }
+
+// Response 204 (fila vazia)
 ```
 
-## 🏗️ Arquitetura
+## 🏗️ Fluxo
 
 ```
-Cliente → [POST /api/sqs] → AWS SQS (fila)
-Cliente → [GET /api/sqs]  → AWS SQS (consume) → SQLite (persiste)
+[POST] Cliente → API → AWS SQS (enqueue)
+[GET]  Cliente → API → AWS SQS (dequeue + Long Polling) → SQLite (persist) → Delete da fila
 ```
 
-O padrão Producer/Consumer garante desacoplamento e resiliência — mensagens ficam na fila até serem processadas.
+**At-Least-Once:** A mensagem só é deletada da fila APÓS persistir no banco. Se o processo falhar, o SQS reenvia automaticamente (visibility timeout).
 
 ## 📄 Licença
 
-Este projeto é apenas para fins de estudo e portfólio.
+Projeto de estudo e portfólio.

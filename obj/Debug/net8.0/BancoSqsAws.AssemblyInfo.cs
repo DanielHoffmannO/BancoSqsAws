@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BancoSqsAws")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ccc30ccbb9c256d3dd87dd3df48b67fbd641bfad")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ea9d7f2d7ba18648ea9e92088a9f4d56db2465fb")]
 [assembly: System.Reflection.AssemblyProductAttribute("BancoSqsAws")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BancoSqsAws")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
