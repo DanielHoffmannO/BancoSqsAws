@@ -4,72 +4,79 @@ API REST em **.NET 8** que demonstra integração com **AWS SQS** (Simple Queue 
 
 ## 🎯 O que este projeto demonstra
 
-| Conceito AWS / .NET | Implementação |
+| Conceito | Implementação |
 |---|---|
-| AWS SQS SDK | `AWSSDK.SQS` com `IAmazonSQS` via DI |
-| Options Pattern | `IOptions<SqsSettings>` com configuração externalizada |
-| Long Polling | `WaitTimeSeconds` configurável para reduzir custos |
-| At-Least-Once Delivery | Delete da fila APENAS após persistir no banco |
-| Interface + DI | `ISqsService` registrada via `AddScoped` |
-| Structured Logging | `ILogger<T>` com dados de contexto (MessageId, etc.) |
-| CancellationToken | Propagado em toda a cadeia assíncrona |
+| AWS SQS SDK | `AWSSDK.SQS` + `IAmazonSQS` via DI |
+| Options Pattern | `IOptions<SqsSettings>` com config externalizada |
+| Long Polling | `WaitTimeSeconds` configurável (reduz custos) |
+| At-Least-Once Delivery | Delete da fila APÓS persistir no banco |
+| Interface + DI | `ISqsService` → testabilidade |
+| Structured Logging | `ILogger<T>` com contexto |
+| CancellationToken | Propagado em toda cadeia async |
+| Multi-stage Docker | Build otimizado com Alpine |
 | Records (DTOs) | Request/Response imutáveis |
-| EF Core Migrations | Auto-apply na inicialização |
-
-## 🛠️ Stack
-
-- .NET 8 / ASP.NET Core Web API
-- AWS SQS (SDK `AWSSDK.SQS`)
-- Entity Framework Core 8 + SQLite
-- Swagger / OpenAPI
 
 ## 📁 Estrutura
 
 ```
 BancoSqsAws/
-├── Configuration/
-│   └── SqsSettings.cs         # Options Pattern (config tipada)
-├── Controllers/
-│   └── SqsController.cs       # Endpoints com ProducesResponseType
-├── Services/
-│   ├── ISqsService.cs         # Interface (contrato)
-│   └── SqsService.cs          # Implementação com logging + error handling
-├── Models/
-│   ├── MessageModel.cs        # DTOs (records imutáveis)
-│   └── MessageEntity.cs       # Entidade persistida
-├── Data/
-│   └── AppDbContext.cs        # DbContext
-├── Program.cs                 # DI + Pipeline organizado
-└── appsettings.json           # Config AWS + SQS + ConnectionString
+├── src/
+│   └── BancoSqsAws/
+│       ├── Configuration/
+│       │   └── SqsSettings.cs         # Options Pattern
+│       ├── Controllers/
+│       │   └── SqsController.cs       # Endpoints REST
+│       ├── Services/
+│       │   ├── ISqsService.cs         # Interface
+│       │   └── SqsService.cs          # Implementação AWS
+│       ├── Models/
+│       │   ├── MessageModel.cs        # DTOs (records)
+│       │   └── MessageEntity.cs       # Entidade EF Core
+│       ├── Data/
+│       │   └── AppDbContext.cs
+│       ├── Program.cs
+│       ├── appsettings.json
+│       └── BancoSqsAws.csproj
+├── Dockerfile
+├── .dockerignore
+├── .gitignore
+├── BancoSqsAws.sln
+└── README.md
 ```
 
 ## 🚀 Como Rodar
 
-### Pré-requisitos
+### Local
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- [AWS CLI](https://aws.amazon.com/cli/) configurado (`aws configure`)
-- Fila SQS criada no console AWS
+```bash
+# Configurar AWS CLI
+aws configure
 
-### Setup
+# Editar src/BancoSqsAws/appsettings.json → SqsSettings.QueueUrl
 
-1. Configure a URL da sua fila no `appsettings.json`:
-   ```json
-   "SqsSettings": {
-     "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/sua-fila"
-   }
-   ```
+dotnet run --project src/BancoSqsAws
+# Swagger em http://localhost:5069
+```
 
-2. Execute:
-   ```bash
-   dotnet run
-   ```
+### Docker
 
-3. Swagger em: `http://localhost:5069`
+```bash
+docker build -t banco-sqs-aws .
+docker run -p 8080:8080 \
+  -e AWS_ACCESS_KEY_ID=xxx \
+  -e AWS_SECRET_ACCESS_KEY=xxx \
+  -e AWS_REGION=us-east-1 \
+  banco-sqs-aws
+```
 
 ## 📡 Endpoints
 
-### POST `/api/sqs` — Enviar mensagem
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/api/sqs` | Envia mensagem para a fila SQS |
+| `GET` | `/api/sqs` | Consome próxima mensagem (Long Polling) |
+
+### POST `/api/sqs`
 
 ```json
 // Request
@@ -79,13 +86,13 @@ BancoSqsAws/
 { "messageId": "abc-123-def", "status": "Mensagem enviada com sucesso" }
 ```
 
-### GET `/api/sqs` — Consumir mensagem
+### GET `/api/sqs`
 
 ```json
 // Response 200
-{ "id": 1, "content": "Transferência de R$ 150,00 para conta 12345", "receivedAt": "2024-01-15T10:30:00Z" }
+{ "id": 1, "content": "Transferência de R$ 150,00", "receivedAt": "2024-01-15T10:30:00Z" }
 
-// Response 204 (fila vazia)
+// Response 204 — fila vazia
 ```
 
 ## 🏗️ Fluxo
@@ -95,7 +102,15 @@ BancoSqsAws/
 [GET]  Cliente → API → AWS SQS (dequeue + Long Polling) → SQLite (persist) → Delete da fila
 ```
 
-**At-Least-Once:** A mensagem só é deletada da fila APÓS persistir no banco. Se o processo falhar, o SQS reenvia automaticamente (visibility timeout).
+**At-Least-Once:** mensagem só é deletada APÓS persistir. Se falhar, SQS reenvia (visibility timeout).
+
+## 🛠️ Stack
+
+- .NET 8 / ASP.NET Core
+- AWS SQS (`AWSSDK.SQS`)
+- Entity Framework Core 8 + SQLite
+- Docker (Alpine multi-stage)
+- Swagger / OpenAPI
 
 ## 📄 Licença
 
