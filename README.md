@@ -1,3 +1,5 @@
+🌐 [English](README.en.md) | [Español](README.es.md)
+
 # 🏦 BancoSqsAws
 
 API REST em **.NET 8** que demonstra integração com **AWS SQS** (Simple Queue Service) — fila de mensagens com persistência local via EF Core + SQLite.
