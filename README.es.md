@@ -60,7 +60,3 @@ docker run -p 8080:8080 \
 - Entity Framework Core 8 + SQLite
 - Docker (Alpine multi-stage)
 - Swagger / OpenAPI
-
-## Autor
-
-Daniel Hoffmann
