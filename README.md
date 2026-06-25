@@ -2,118 +2,171 @@
 
 # 🏦 BancoSqsAws
 
-API REST em **.NET 8** que demonstra integração com **AWS SQS** (Simple Queue Service) — fila de mensagens com persistência local via EF Core + SQLite.
+[![.NET CI](https://github.com/DanielHoffmannO/BancoSqsAws/actions/workflows/dotnet.yml/badge.svg)](https://github.com/DanielHoffmannO/BancoSqsAws/actions/workflows/dotnet.yml)
+![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)
+![AWS SQS](https://img.shields.io/badge/AWS-SQS-FF9900?logo=amazonsqs)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Alpine-2496ED?logo=docker)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-## 🎯 O que este projeto demonstra
+> API REST demonstrando integração com AWS SQS — filas de mensagens com persistência local e padrão At-Least-Once Delivery.
 
-| Conceito | Implementação |
-|---|---|
-| AWS SQS SDK | `AWSSDK.SQS` + `IAmazonSQS` via DI |
-| Options Pattern | `IOptions<SqsSettings>` com config externalizada |
-| Long Polling | `WaitTimeSeconds` configurável (reduz custos) |
-| At-Least-Once Delivery | Delete da fila APÓS persistir no banco |
-| Interface + DI | `ISqsService` → testabilidade |
-| Structured Logging | `ILogger<T>` com contexto |
-| CancellationToken | Propagado em toda cadeia async |
-| Multi-stage Docker | Build otimizado com Alpine |
-| Records (DTOs) | Request/Response imutáveis |
+---
 
-## 📁 Estrutura
+## 🎯 Conceitos Demonstrados
 
-```
-BancoSqsAws/
-├── src/
-│   └── BancoSqsAws/
-│       ├── Configuration/
-│       │   └── SqsSettings.cs         # Options Pattern
-│       ├── Controllers/
-│       │   └── SqsController.cs       # Endpoints REST
-│       ├── Services/
-│       │   ├── ISqsService.cs         # Interface
-│       │   └── SqsService.cs          # Implementação AWS
-│       ├── Models/
-│       │   ├── MessageModel.cs        # DTOs (records)
-│       │   └── MessageEntity.cs       # Entidade EF Core
-│       ├── Data/
-│       │   └── AppDbContext.cs
-│       ├── Program.cs
-│       ├── appsettings.json
-│       └── BancoSqsAws.csproj
-├── Dockerfile
-├── .dockerignore
-├── .gitignore
-├── BancoSqsAws.sln
-└── README.md
-```
+| Conceito | Descrição |
+|----------|-----------|
+| **Message Queue** | Comunicação assíncrona via AWS SQS |
+| **Long Polling** | Redução de chamadas vazias ao consumir mensagens |
+| **At-Least-Once Delivery** | Garantia de entrega com delete explícito após processamento |
+| **Options Pattern** | Configuração tipada via `IOptions<SqsSettings>` |
+| **Dependency Injection** | `IAmazonSQS` registrado no container DI |
+| **Persistência Local** | EF Core + SQLite para armazenar mensagens consumidas |
+| **Multi-stage Build** | Docker Alpine otimizado para produção |
+
+---
+
+## 🛠️ Tech Stack
+
+- **.NET 8** — ASP.NET Core Web API
+- **AWSSDK.SQS** — Client oficial AWS para SQS
+- **Entity Framework Core** — ORM com provider SQLite
+- **Swagger / OpenAPI** — Documentação interativa
+- **Docker** — Multi-stage build com Alpine
+- **GitHub Actions** — CI automatizado
+
+---
 
 ## 🚀 Como Rodar
+
+### Pré-requisitos
+
+- .NET 8 SDK
+- Conta AWS com fila SQS criada (ou LocalStack)
+- Docker (opcional)
 
 ### Local
 
 ```bash
-# Configurar AWS CLI
-aws configure
+# Clone o repositório
+git clone https://github.com/DanielHoffmannO/BancoSqsAws.git
+cd BancoSqsAws
 
-# Editar src/BancoSqsAws/appsettings.json → SqsSettings.QueueUrl
+# Configure as credenciais AWS no appsettings.json ou variáveis de ambiente
+# AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
 
-dotnet run --project src/BancoSqsAws
-# Swagger em http://localhost:5069
+# Execute
+dotnet run
 ```
+
+Acesse o Swagger em: `https://localhost:5001/swagger`
 
 ### Docker
 
 ```bash
+# Build
 docker build -t banco-sqs-aws .
+
+# Run
 docker run -p 8080:8080 \
-  -e AWS_ACCESS_KEY_ID=xxx \
-  -e AWS_SECRET_ACCESS_KEY=xxx \
+  -e AWS_ACCESS_KEY_ID=your_key \
+  -e AWS_SECRET_ACCESS_KEY=your_secret \
   -e AWS_REGION=us-east-1 \
   banco-sqs-aws
 ```
 
+---
+
 ## 📡 Endpoints
 
-| Método | Rota | Descrição |
-|---|---|---|
-| `POST` | `/api/sqs` | Envia mensagem para a fila SQS |
-| `GET` | `/api/sqs` | Consome próxima mensagem (Long Polling) |
+### `POST /api/sqs` — Enviar mensagem para a fila
 
-### POST `/api/sqs`
-
+**Request:**
 ```json
-// Request
-{ "content": "Transferência de R$ 150,00 para conta 12345" }
-
-// Response 200
-{ "messageId": "abc-123-def", "status": "Mensagem enviada com sucesso" }
+{
+  "messageBody": "Pagamento de R$ 150,00 processado"
+}
 ```
 
-### GET `/api/sqs`
-
+**Response (200):**
 ```json
-// Response 200
-{ "id": 1, "content": "Transferência de R$ 150,00", "receivedAt": "2024-01-15T10:30:00Z" }
-
-// Response 204 — fila vazia
+{
+  "messageId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "statusCode": 200
+}
 ```
 
-## 🏗️ Fluxo
+---
+
+### `GET /api/sqs` — Consumir mensagem da fila (Long Polling)
+
+**Response (200):**
+```json
+{
+  "messageId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "body": "Pagamento de R$ 150,00 processado",
+  "persistedAt": "2026-06-25T10:00:00Z"
+}
+```
+
+**Response (204):** Nenhuma mensagem disponível na fila.
+
+---
+
+## 🔄 Fluxo
 
 ```
-[POST] Cliente → API → AWS SQS (enqueue)
-[GET]  Cliente → API → AWS SQS (dequeue + Long Polling) → SQLite (persist) → Delete da fila
+┌──────────┐       ┌───────────┐       ┌──────────┐
+│  Client  │──POST─▶│  API REST │──────▶│ AWS SQS  │
+│          │       │           │       │  (Queue) │
+└──────────┘       └───────────┘       └────┬─────┘
+                                            │
+┌──────────┐       ┌───────────┐            │
+│  Client  │◀─200──│  API REST │◀───GET─────┘
+│          │       │     │     │   (Long Polling)
+└──────────┘       └─────┼─────┘
+                         │
+                         ▼
+                   ┌───────────┐
+                   │  SQLite   │  ← Persiste mensagem
+                   │    DB     │
+                   └───────────┘
+                         │
+                         ▼
+                   Delete da fila SQS
+                   (At-Least-Once ✓)
 ```
 
-**At-Least-Once:** mensagem só é deletada APÓS persistir. Se falhar, SQS reenvia (visibility timeout).
+---
 
-## 🛠️ Stack
+## 🏗️ Arquitetura
 
-- .NET 8 / ASP.NET Core
-- AWS SQS (`AWSSDK.SQS`)
-- Entity Framework Core 8 + SQLite
-- Docker (Alpine multi-stage)
-- Swagger / OpenAPI
+```
+BancoSqsAws/
+├── Controllers/
+│   └── SqsController.cs        # Endpoints POST e GET
+├── Models/
+│   └── SqsSettings.cs          # Options Pattern
+├── Data/
+│   └── AppDbContext.cs          # EF Core + SQLite
+├── Program.cs                   # DI, IAmazonSQS, EF Core
+├── Dockerfile                   # Multi-stage Alpine
+├── appsettings.json             # Configuração SQS
+└── .github/workflows/
+    └── dotnet.yml               # CI Pipeline
+```
+
+---
 
 ## 📄 Licença
 
-Projeto de estudo e portfólio.
+Este projeto está licenciado sob a [MIT License](LICENSE).
+
+---
+
+## 👤 Autor
+
+**Daniel Hoffmann**
+
+[![GitHub](https://img.shields.io/badge/GitHub-DanielHoffmannO-181717?logo=github)](https://github.com/DanielHoffmannO)
