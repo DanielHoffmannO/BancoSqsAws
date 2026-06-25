@@ -1,172 +1,103 @@
-ðŸŒ [English](README.en.md) | [EspaÃ±ol](README.es.md)
+[>] [English](README.en.md) | [Espanol](README.es.md)
 
-# ðŸ¦ BancoSqsAws
+# {&} BancoSqsAws
 
-[![.NET CI](https://github.com/DanielHoffmannO/BancoSqsAws/actions/workflows/dotnet.yml/badge.svg)](https://github.com/DanielHoffmannO/BancoSqsAws/actions/workflows/dotnet.yml)
-![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)
-![AWS SQS](https://img.shields.io/badge/AWS-SQS-FF9900?logo=amazonsqs)
+[![.NET CI](https://github.com/DanielHoffmannO/BancoSqsAws/actions/workflows/dotnet.yml/badge.svg)](https://github.com/DanielHoffmannO/BancoSqsAws/actions)
+![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)
+![AWS SQS](https://img.shields.io/badge/AWS-SQS-FF9900?logo=amazonaws)
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Alpine-2496ED?logo=docker)
-![License](https://img.shields.io/badge/License-MIT-green)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-> API REST demonstrando integraÃ§Ã£o com AWS SQS â€” filas de mensagens com persistÃªncia local e padrÃ£o At-Least-Once Delivery.
+> API REST demonstrando integracao com AWS SQS -- filas de mensagens com persistencia local e padrao At-Least-Once Delivery.
 
----
+## [*] Conceitos Demonstrados
 
-## ðŸŽ¯ Conceitos Demonstrados
+| Conceito | Implementacao |
+|----------|--------------|
+| AWS SQS SDK | `AWSSDK.SQS` + `IAmazonSQS` via DI |
+| Options Pattern | `IOptions<SqsSettings>` com config externalizada |
+| Long Polling | `WaitTimeSeconds` configuravel (reduz custos) |
+| At-Least-Once | Delete da fila APOS persistir no banco |
+| Interface + DI | `ISqsService` -> testabilidade |
+| Structured Logging | `ILogger<T>` com contexto |
+| CancellationToken | Propagado em toda cadeia async |
+| Multi-stage Docker | Build otimizado com Alpine |
+| Records (DTOs) | Request/Response imutaveis |
 
-| Conceito | DescriÃ§Ã£o |
-|----------|-----------|
-| **Message Queue** | ComunicaÃ§Ã£o assÃ­ncrona via AWS SQS |
-| **Long Polling** | ReduÃ§Ã£o de chamadas vazias ao consumir mensagens |
-| **At-Least-Once Delivery** | Garantia de entrega com delete explÃ­cito apÃ³s processamento |
-| **Options Pattern** | ConfiguraÃ§Ã£o tipada via `IOptions<SqsSettings>` |
-| **Dependency Injection** | `IAmazonSQS` registrado no container DI |
-| **PersistÃªncia Local** | EF Core + SQLite para armazenar mensagens consumidas |
-| **Multi-stage Build** | Docker Alpine otimizado para produÃ§Ã£o |
+## {=} Tech Stack
 
----
+- .NET 8 / ASP.NET Core
+- AWS SQS (`AWSSDK.SQS`)
+- Entity Framework Core 8 + SQLite
+- Docker (Alpine multi-stage)
+- Swagger / OpenAPI
 
-## ðŸ› ï¸ Tech Stack
-
-- **.NET 8** â€” ASP.NET Core Web API
-- **AWSSDK.SQS** â€” Client oficial AWS para SQS
-- **Entity Framework Core** â€” ORM com provider SQLite
-- **Swagger / OpenAPI** â€” DocumentaÃ§Ã£o interativa
-- **Docker** â€” Multi-stage build com Alpine
-- **GitHub Actions** â€” CI automatizado
-
----
-
-## ðŸš€ Como Rodar
-
-### PrÃ©-requisitos
-
-- .NET 8 SDK
-- Conta AWS com fila SQS criada (ou LocalStack)
-- Docker (opcional)
+## [!] Como Rodar
 
 ### Local
 
 ```bash
-# Clone o repositÃ³rio
-git clone https://github.com/DanielHoffmannO/BancoSqsAws.git
-cd BancoSqsAws
+aws configure
+# Editar src/BancoSqsAws/appsettings.json -> SqsSettings.QueueUrl
 
-# Configure as credenciais AWS no appsettings.json ou variÃ¡veis de ambiente
-# AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
-
-# Execute
-dotnet run
+dotnet run --project src/BancoSqsAws
+# Swagger em http://localhost:5069
 ```
-
-Acesse o Swagger em: `https://localhost:5001/swagger`
 
 ### Docker
 
 ```bash
-# Build
 docker build -t banco-sqs-aws .
-
-# Run
 docker run -p 8080:8080 \
-  -e AWS_ACCESS_KEY_ID=your_key \
-  -e AWS_SECRET_ACCESS_KEY=your_secret \
+  -e AWS_ACCESS_KEY_ID=xxx \
+  -e AWS_SECRET_ACCESS_KEY=xxx \
   -e AWS_REGION=us-east-1 \
   banco-sqs-aws
 ```
 
----
+## [>] Endpoints
 
-## ðŸ“¡ Endpoints
+### POST `/api/sqs` -- Envia mensagem
 
-### `POST /api/sqs` â€” Enviar mensagem para a fila
-
-**Request:**
 ```json
-{
-  "messageBody": "Pagamento de R$ 150,00 processado"
-}
+// Request
+{ "content": "Transferencia de R$ 150,00 para conta 12345" }
+
+// Response 200
+{ "messageId": "abc-123-def", "status": "Mensagem enviada com sucesso" }
 ```
 
-**Response (200):**
+### GET `/api/sqs` -- Consome mensagem (Long Polling)
+
 ```json
-{
-  "messageId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "statusCode": 200
-}
+// Response 200
+{ "id": 1, "content": "Transferencia de R$ 150,00", "receivedAt": "2024-01-15T10:30:00Z" }
+
+// Response 204 -- fila vazia
 ```
 
----
-
-### `GET /api/sqs` â€” Consumir mensagem da fila (Long Polling)
-
-**Response (200):**
-```json
-{
-  "messageId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "body": "Pagamento de R$ 150,00 processado",
-  "persistedAt": "2026-06-25T10:00:00Z"
-}
-```
-
-**Response (204):** Nenhuma mensagem disponÃ­vel na fila.
-
----
-
-## ðŸ”„ Fluxo
+## {?} Fluxo
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”       â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”       â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚  Client  â”‚â”€â”€POSTâ”€â–¶â”‚  API REST â”‚â”€â”€â”€â”€â”€â”€â–¶â”‚ AWS SQS  â”‚
-â”‚          â”‚       â”‚           â”‚       â”‚  (Queue) â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜       â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜       â””â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”˜
-                                            â”‚
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”       â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”            â”‚
-â”‚  Client  â”‚â—€â”€200â”€â”€â”‚  API REST â”‚â—€â”€â”€â”€GETâ”€â”€â”€â”€â”€â”˜
-â”‚          â”‚       â”‚     â”‚     â”‚   (Long Polling)
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜       â””â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”˜
-                         â”‚
-                         â–¼
-                   â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-                   â”‚  SQLite   â”‚  â† Persiste mensagem
-                   â”‚    DB     â”‚
-                   â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                         â”‚
-                         â–¼
-                   Delete da fila SQS
-                   (At-Least-Once âœ“)
+[POST] Cliente -> API -> AWS SQS (enqueue)
+[GET]  Cliente -> API -> AWS SQS (dequeue + Long Polling) -> SQLite (persist) -> Delete da fila
 ```
 
----
+**At-Least-Once:** mensagem so e deletada APOS persistir. Se falhar, SQS reenvia (visibility timeout).
 
-## ðŸ—ï¸ Arquitetura
+## {/} Arquitetura
 
 ```
-BancoSqsAws/
-â”œâ”€â”€ Controllers/
-â”‚   â””â”€â”€ SqsController.cs        # Endpoints POST e GET
-â”œâ”€â”€ Models/
-â”‚   â””â”€â”€ SqsSettings.cs          # Options Pattern
-â”œâ”€â”€ Data/
-â”‚   â””â”€â”€ AppDbContext.cs          # EF Core + SQLite
-â”œâ”€â”€ Program.cs                   # DI, IAmazonSQS, EF Core
-â”œâ”€â”€ Dockerfile                   # Multi-stage Alpine
-â”œâ”€â”€ appsettings.json             # ConfiguraÃ§Ã£o SQS
-â””â”€â”€ .github/workflows/
-    â””â”€â”€ dotnet.yml               # CI Pipeline
+src/BancoSqsAws/
++-- Configuration/   <- SqsSettings (Options Pattern)
++-- Controllers/     <- SqsController (endpoints REST)
++-- Services/        <- ISqsService + SqsService (AWS)
++-- Models/          <- DTOs (records) + Entity EF Core
++-- Data/            <- AppDbContext
++-- Program.cs
 ```
 
----
+## [$] Licenca
 
-## ðŸ“„ LicenÃ§a
-
-Este projeto estÃ¡ licenciado sob a [MIT License](LICENSE).
-
----
-
-## ðŸ‘¤ Autor
-
-**Daniel Hoffmann**
-
-[![GitHub](https://img.shields.io/badge/GitHub-DanielHoffmannO-181717?logo=github)](https://github.com/DanielHoffmannO)
+Este projeto esta sob a licenca [MIT](LICENSE).
